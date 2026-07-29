@@ -1,0 +1,10 @@
+{
+  "description": "Discover and book events across diverse categories with secure registration, ticket limits, and QR code access for a seamless meetup experience.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
