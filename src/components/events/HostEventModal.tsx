@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { CATEGORIES } from "../../constants";
+import type { EventData } from "../../types";
 
-export function HostEventModal({ onClose }: { onClose: () => void }) {
+export function HostEventModal({
+  onClose,
+  onSubmitEvent,
+}: {
+  onClose: () => void;
+  onSubmitEvent?: (newEvent: EventData) => void;
+}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -10,18 +17,89 @@ export function HostEventModal({ onClose }: { onClose: () => void }) {
     setIsSubmitting(true);
 
     const formData = new FormData(e.currentTarget);
-    // Replace YOUR_ACCESS_KEY with the key from https://web3forms.com/
-    formData.append("access_key", "YOUR_ACCESS_KEY_HERE");
+    const categoryId = formData.get("category") as string;
+    const eventName = formData.get("event_name") as string;
+    const description = formData.get("description") as string;
+    const dateVal = formData.get("date") as string;
+    const timeVal = formData.get("time") as string;
+    const location = formData.get("location") as string;
+    const hostedBy = formData.get("hosted_by") as string;
+    const duration = formData.get("duration") as string;
+    const ageLimit = formData.get("age_limit") as string;
+    const seatsCount = parseInt(formData.get("seats") as string) || 30;
+    const priceVal = parseInt(formData.get("price") as string) || 0;
+
+    // Build unique ID and date string
+    const eventId = `evt-${Date.now()}`;
+    const formattedDate = `${new Date(dateVal).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })} · ${timeVal}`;
+
+    // Get placeholder image matching category or fallback
+    const matchedCategory = CATEGORIES.find((c) => c.id === categoryId);
+    const categoryName = matchedCategory ? matchedCategory.label : "Event";
+    const imageMap: Record<string, string> = {
+      art: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=700",
+      dance: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=700",
+      food: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=700",
+      mudpot: "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=700",
+      tech: "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=700",
+      strangers: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=700",
+      cinema: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=700",
+      comedy: "https://images.unsplash.com/photo-1585699324551-f6c309eed262?w=700",
+    };
+    const imageUrl = imageMap[categoryId] || "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=700";
+
+    const newEvent: EventData = {
+      id: eventId,
+      categoryId,
+      title: eventName,
+      description,
+      fullDescription: description,
+      ticketTiers: [
+        {
+          id: `${eventId}-reg`,
+          name: "Regular Admission",
+          price: priceVal,
+          totalSeats: seatsCount,
+          bookedSeats: 0,
+          heldSeats: 0,
+          bookedSeatList: [],
+          heldSeatList: [],
+        },
+      ],
+      location,
+      hostedBy,
+      duration,
+      date: formattedDate,
+      ageCategory: ageLimit,
+      price: `From ₹${priceVal}`,
+      tags: [categoryName, "Newly Added", "Community"],
+      image: imageUrl,
+      images: [imageUrl],
+      isActive: true,
+    };
 
     try {
-      const response = await fetch("https://api.web3forms.com/submit", {
+      // Append web3forms submission optionally
+      const web3Data = new FormData();
+      web3Data.append("access_key", "YOUR_ACCESS_KEY_HERE");
+      web3Data.append("subject", `New Event Created: ${eventName}`);
+      web3Data.append("message", `Organizer: ${formData.get("organizer_name")}\nPhone: ${formData.get("organizer_phone")}\nDetails: ${description}`);
+      
+      // Post to web3forms mock/optional
+      await fetch("https://api.web3forms.com/submit", {
         method: "POST",
-        body: formData,
-      });
+        body: web3Data,
+      }).catch(() => {});
 
-      if (response.ok) {
-        setSubmitted(true);
+      // Add to React State instantly
+      if (onSubmitEvent) {
+        onSubmitEvent(newEvent);
       }
+      setSubmitted(true);
     } catch (error) {
       alert("Something went wrong. Please try again.");
     } finally {
@@ -43,12 +121,11 @@ export function HostEventModal({ onClose }: { onClose: () => void }) {
         <h2
           style={{ fontFamily: "'Playfair Display', serif", color: "#1B2B4E" }}
         >
-          Application Received!
+          Event Published!
         </h2>
         <p style={{ color: "#6B7280", lineHeight: 1.6 }}>
-          Thank you for trusting Hapenly.in. Our team will review your event
-          details <br />
-          and contact you via phone/email within 24 hours for approval.
+          Your event details have been processed. The event has been created <br />
+          and added to the live listings automatically.
         </p>
         <button
           onClick={onClose}
@@ -113,27 +190,26 @@ export function HostEventModal({ onClose }: { onClose: () => void }) {
           Host your event
         </h2>
         <p style={{ margin: 0, opacity: 0.8, fontSize: 14 }}>
-          Fill in the details. Our team will review and publish your event.
+          Fill in the details. The event will be published immediately to the site.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} style={{ padding: "2rem" }}>
-        {/* Trust Badge */}
         <div
           style={{
             display: "flex",
             gap: 10,
-            background: "#F0F7FF",
+            background: "#FEF2F2",
             padding: "12px",
             borderRadius: 12,
             marginBottom: "2rem",
             alignItems: "center",
+            border: "1px solid #FECACA",
           }}
         >
-          <span style={{ fontSize: 20 }}>🛡️</span>
-          <span style={{ fontSize: 13, color: "#1D4ED8", fontWeight: 600 }}>
-            Verified Community: All events are manually reviewed to ensure
-            safety and quality.
+          <span style={{ fontSize: 20 }}>🔒</span>
+          <span style={{ fontSize: 13, color: "#991B1B", fontWeight: 600 }}>
+            Admin Only: Events created here are published <strong>immediately</strong> to the live site.
           </span>
         </div>
 
@@ -150,7 +226,7 @@ export function HostEventModal({ onClose }: { onClose: () => void }) {
             <select name="category" required style={inputStyle}>
               <option value="">-- Choose Category --</option>
               {CATEGORIES.map((c) => (
-                <option key={c.id} value={c.label}>
+                <option key={c.id} value={c.id}>
                   {c.emoji} {c.label}
                 </option>
               ))}
@@ -229,12 +305,23 @@ export function HostEventModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <label style={labelStyle}>Number of Seats *</label>
+            <label style={labelStyle}>Number of Seats Available *</label>
             <input
               type="number"
               name="seats"
               required
               placeholder="e.g. 50"
+              style={inputStyle}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Ticket Price (₹) *</label>
+            <input
+              type="number"
+              name="price"
+              required
+              placeholder="e.g. 299"
               style={inputStyle}
             />
           </div>
@@ -293,18 +380,8 @@ export function HostEventModal({ onClose }: { onClose: () => void }) {
             boxShadow: "0 10px 20px rgba(200,75,49,0.3)",
           }}
         >
-          {isSubmitting ? "Sending Application..." : "Submit Event for Review"}
+          {isSubmitting ? "Publishing Event..." : "Publish Event Live"}
         </button>
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: 12,
-            color: "#9CA3AF",
-            marginTop: 15,
-          }}
-        >
-          By submitting, you agree to our terms for event hosting.
-        </p>
       </form>
     </div>
   );

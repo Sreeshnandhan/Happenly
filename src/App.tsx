@@ -17,6 +17,7 @@ import { WhyTrustUs } from "./components/sections/whyTrustUs";
 import { CategoryPhotoStrip } from "./components/sections/CategoryPhotoStrip";
 import { Footer } from "./components/sections/Footer";
 import { HostEventModal } from "./components/events/HostEventModal";
+import { OrganizerSubmitModal } from "./components/events/OrganizerSubmitModal";
 import { PaymentModal } from "./components/tickets/PaymentModal";
 import { OrganizerDashboardModal } from "./components/events/OrganizerDashboardModal";
 
@@ -27,52 +28,54 @@ import "./index.css";
 const INITIALIZE_EVENTS_SEATS = (allEvents: EventData[]): EventData[] => {
   return allEvents.map((event) => ({
     ...event,
-    ticketTiers: event.ticketTiers.map((tier) => {
-      const bookedSeatList: BookedSeat[] = [];
-      const rows = ["A", "B", "C", "D", "E", "F", "G", "H"];
-      const seatsPerRow = 10;
-      
-      const platforms: ("Hapenly" | "BookMyShow" | "Paytm Insider")[] = [
-        "Hapenly",
-        "BookMyShow",
-        "Paytm Insider",
-      ];
-      const names = [
-        "Ramesh Kumar",
-        "Anjali Sharma",
-        "Karthik S.",
-        "Priya Patel",
-        "Vikram Singh",
-        "Deepa Nair",
-        "Arun V.",
-        "Suresh R.",
-      ];
+    ticketTiers: event.ticketTiers
+      .filter((tier) => !tier.name.toLowerCase().includes("early"))
+      .map((tier) => {
+        const bookedSeatList: BookedSeat[] = [];
+        const rows = ["A", "B", "C", "D", "E", "F", "G", "H"];
+        const seatsPerRow = 10;
+        
+        const platforms: ("Hapenly" | "BookMyShow" | "Paytm Insider")[] = [
+          "Hapenly",
+          "BookMyShow",
+          "Paytm Insider",
+        ];
+        const names = [
+          "Ramesh Kumar",
+          "Anjali Sharma",
+          "Karthik S.",
+          "Priya Patel",
+          "Vikram Singh",
+          "Deepa Nair",
+          "Arun V.",
+          "Suresh R.",
+        ];
 
-      for (let i = 0; i < tier.bookedSeats; i++) {
-        const rowIdx = Math.floor(i / seatsPerRow);
-        const seatNum = (i % seatsPerRow) + 1;
-        const row = rows[rowIdx] || "A";
-        const seatId = `${row}${seatNum}`;
+        for (let i = 0; i < tier.bookedSeats; i++) {
+          const rowIdx = Math.floor(i / seatsPerRow);
+          const seatNum = (i % seatsPerRow) + 1;
+          const row = rows[rowIdx] || "A";
+          const seatId = `${row}${seatNum}`;
 
-        const platform = platforms[i % platforms.length];
-        const customerName = platform === "Hapenly" ? names[i % names.length] : undefined;
-        const hoursAgo = (i + 1) * 3;
-        const bookedAt = new Date(Date.now() - hoursAgo * 3600000).toISOString();
+          const platform = platforms[i % platforms.length];
+          const customerName = platform === "Hapenly" ? names[i % names.length] : undefined;
+          const hoursAgo = (i + 1) * 3;
+          const bookedAt = new Date(Date.now() - hoursAgo * 3600000).toISOString();
 
-        bookedSeatList.push({
-          id: seatId,
-          platform,
-          customerName,
-          bookedAt,
-        });
-      }
+          bookedSeatList.push({
+            id: seatId,
+            platform,
+            customerName,
+            bookedAt,
+          });
+        }
 
-      return {
-        ...tier,
-        bookedSeatList,
-        heldSeatList: [],
-      };
-    }),
+        return {
+          ...tier,
+          bookedSeatList,
+          heldSeatList: [],
+        };
+      }),
   }));
 };
 
@@ -94,6 +97,7 @@ export default function App() {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>(INITIAL_FEEDBACKS);
   const [events, setEvents] = useState<EventData[]>(() => INITIALIZE_EVENTS_SEATS(ALL_EVENTS));
   const [showHostModal, setShowHostModal] = useState(false);
+  const [showOrganizerSubmit, setShowOrganizerSubmit] = useState(false);
   // ─── Seat Modal State ───
   const [seatModal, setSeatModal] = useState<{
     event: EventData;
@@ -117,8 +121,29 @@ export default function App() {
   // ─── Derived Data ───
   const category = CATEGORIES.find((c) => c.id === selectedCategory)!;
   const filteredEvents = events.filter(
-    (e) => e.categoryId === selectedCategory,
+    (e) => e.categoryId === selectedCategory && e.isActive !== false,
   );
+
+  const handleAddEvent = (newEvent: EventData) => {
+    setEvents((prev) => [newEvent, ...prev]);
+    addToast(`🎉 New event "${newEvent.title}" is now live!`);
+  };
+
+  const handleToggleEventActive = (eventId: string) => {
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId
+          ? { ...e, isActive: e.isActive === false ? true : false }
+          : e
+      )
+    );
+    // Visual alert feedback
+    const target = events.find((e) => e.id === eventId);
+    if (target) {
+      const isNowActive = target.isActive === false;
+      addToast(`📢 Event "${target.title}" hosting is now ${isNowActive ? "Active" : "Stopped"}!`);
+    }
+  };
 
   const userTotalTickets = user
     ? bookings
@@ -214,9 +239,8 @@ export default function App() {
               ),
             );
 
-            const msg = `📢 Seat ${selectedSeatId} on ${ev.title} (${tier.name}) booked via ${platform}!`;
+            // Only log to admin sync console — no public toast notification
             addSyncLog(`Sync Success: Seat ${selectedSeatId} booked on ${platform}`);
-            addToast(msg);
           }
         }
       }
@@ -481,9 +505,15 @@ export default function App() {
     setCheckoutState(null);
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (details: { name: string; phone: string; email: string }) => {
     if (!checkoutState) return;
-    const currentUser = user || { id: "dev-user", username: "Guest User", email: "guest@example.com", phone: "1234567890", password: "" };
+    const currentUser = {
+      id: user?.id || `guest-${Date.now()}`,
+      username: details.name,
+      email: details.email,
+      phone: details.phone,
+      password: "",
+    };
     completeBookingWithTier(
       checkoutState.event,
       checkoutState.tier,
@@ -603,7 +633,7 @@ export default function App() {
               💼 Organizer Console
             </button>
             <button
-              onClick={() => setShowHostModal(true)}
+              onClick={() => setShowOrganizerSubmit(true)}
               style={{
                 background: "transparent",
                 color: "#F5A623",
@@ -1105,9 +1135,23 @@ export default function App() {
         </Overlay>
       )}
 
+      {/* Organizer Submit Modal — sends email for review, does NOT publish */}
+      {showOrganizerSubmit && (
+        <Overlay onClose={() => setShowOrganizerSubmit(false)}>
+          <OrganizerSubmitModal onClose={() => setShowOrganizerSubmit(false)} />
+        </Overlay>
+      )}
+
+      {/* Admin Host Modal — used inside Organizer Console to publish events live */}
       {showHostModal && (
         <Overlay onClose={() => setShowHostModal(false)}>
-          <HostEventModal onClose={() => setShowHostModal(false)} />
+          <HostEventModal
+            onClose={() => setShowHostModal(false)}
+            onSubmitEvent={(newEvent) => {
+              handleAddEvent(newEvent);
+              setShowHostModal(false);
+            }}
+          />
         </Overlay>
       )}
 
@@ -1144,6 +1188,11 @@ export default function App() {
           syncLogs={syncLogs}
           onClearLogs={() => setSyncLogs([])}
           onForceSync={handleForceSync}
+          onToggleEventActive={handleToggleEventActive}
+          onCreateEvent={() => {
+            setShowOrganizerDashboard(false);
+            setShowHostModal(true);
+          }}
         />
       )}
 

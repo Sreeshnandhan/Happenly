@@ -68,7 +68,7 @@ export function EventDetailModal({
       setSlideIndex((prev) => (prev + 1) % images.length);
     }, 3000);
     return () => clearInterval(timer);
-  }, [images.length]);
+  }, [images.length, slideIndex]);
 
   return (
     <div
@@ -81,6 +81,13 @@ export function EventDetailModal({
         maxWidth: 500,
       }}
     >
+      <style>{`
+        @keyframes fillProgress {
+          from { width: 0%; }
+          to { width: 100%; }
+        }
+      `}</style>
+
       {/* --- IMAGE HEADER --- */}
       <div style={{ position: "relative", height: 230, overflow: "hidden" }}>
         {images.map((src, i) => (
@@ -110,6 +117,46 @@ export function EventDetailModal({
           }}
         />
 
+        {/* Dash progress indicators (story style auto loader) */}
+        {images.length > 1 && (
+          <div
+            style={{
+              position: "absolute",
+              top: 14,
+              left: 16,
+              right: 60,
+              display: "flex",
+              gap: 4,
+              zIndex: 2,
+            }}
+          >
+            {images.map((_, i) => (
+              <div
+                key={i}
+                onClick={() => setSlideIndex(i)}
+                style={{
+                  flex: 1,
+                  height: 3,
+                  background: "rgba(255, 255, 255, 0.35)",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  key={`${i}-${slideIndex}`} // Re-mount key to restart animation on change
+                  style={{
+                    height: "100%",
+                    background: "white",
+                    width: i === slideIndex ? "0%" : i < slideIndex ? "100%" : "0%",
+                    animation: i === slideIndex ? "fillProgress 3s linear forwards" : "none",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         <button
           onClick={onClose}
           style={{
@@ -133,6 +180,66 @@ export function EventDetailModal({
           {" "}
           ×{" "}
         </button>
+
+        {/* Navigation Arrows */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSlideIndex((prev) => (prev - 1 + images.length) % images.length);
+              }}
+              style={{
+                position: "absolute",
+                left: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 2,
+                background: "rgba(0,0,0,0.45)",
+                border: "none",
+                color: "white",
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+                fontWeight: "bold",
+              }}
+            >
+              ‹
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSlideIndex((prev) => (prev + 1) % images.length);
+              }}
+              style={{
+                position: "absolute",
+                right: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 2,
+                background: "rgba(0,0,0,0.45)",
+                border: "none",
+                color: "white",
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 20,
+                fontWeight: "bold",
+              }}
+            >
+              ›
+            </button>
+          </>
+        )}
 
         <div style={{ position: "absolute", bottom: 14, left: 16, zIndex: 2 }}>
           <span
@@ -241,7 +348,7 @@ export function EventDetailModal({
           />
         </div>
 
-        {/* --- CHANGE: TICKET TIERS SELECTION (District Model) --- */}
+        {/* --- CHANGE: TICKET TIERS SELECTION (District Model - Filtered Early Bird) --- */}
         <div style={{ marginBottom: "1.5rem" }}>
           <h3
             style={{
@@ -255,13 +362,15 @@ export function EventDetailModal({
             CHOOSE TICKETS
           </h3>
 
-          {event.ticketTiers.map((tier) => {
-            // Logic: Subtract both Booked and Held seats for true availability
-            const bookedCount = tier.bookedSeatList?.length ?? tier.bookedSeats;
-            const heldCount = tier.heldSeatList?.length ?? tier.heldSeats;
-            const tierAvailable = tier.totalSeats - (bookedCount + heldCount);
-            const isTierFull = tierAvailable <= 0;
-            const userAtLimit = userTotalTickets >= 5;
+          {event.ticketTiers
+            .filter((tier) => !tier.name.toLowerCase().includes("early"))
+            .map((tier) => {
+              // Logic: Subtract both Booked and Held seats for true availability
+              const bookedCount = tier.bookedSeatList?.length ?? tier.bookedSeats;
+              const heldCount = tier.heldSeatList?.length ?? tier.heldSeats;
+              const tierAvailable = tier.totalSeats - (bookedCount + heldCount);
+              const isTierFull = tierAvailable <= 0;
+              const userAtLimit = userTotalTickets >= 5;
 
             return (
               <div

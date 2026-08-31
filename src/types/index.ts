@@ -44,6 +44,7 @@ export interface EventData {
   tags: string[];
   image: string; // Main thumbnail
   images?: string[]; // For the image slider
+  isActive?: boolean; // Toggles whether the event is hosted/visible on site
 }
 
 export interface Category {
