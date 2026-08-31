@@ -1,2 +1,88 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
-@import 'tailwindcss';
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap");
+@import "tailwindcss";
+
+/* App.css */
+
+/* App.css */
+.main-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Hero Grid: 2 columns on desktop, 1 on mobile */
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+/* Stats Grid: 2x2 on desktop/tablet, 1 col on small mobile */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* Category Banner: stack on mobile */
+.category-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Hide scrollbar for category tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* MEDIA QUERIES */
+@media (max-width: 900px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 3rem 1.5rem !important;
+  }
+
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .nav-links-desktop {
+    display: none !important; /* Hide "Explore" and "Reviews" on small mobile if needed */
+  }
+}
+
+@media (max-width: 600px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .category-banner {
+    flex-direction: column;
+    text-align: center;
+    padding: 1.5rem !important;
+  }
+
+  .banner-right-text {
+    margin-left: 0 !important;
+    margin-top: 10px;
+  }
+
+  .header-content {
+    padding: 0 1rem !important;
+  }
+
+  .logo-text {
+    font-size: 18px !important;
+  }
+}
