@@ -3,7 +3,14 @@ import type { CSSProperties } from "react";
 
 // Data & Types
 import { CATEGORIES, ALL_EVENTS, INITIAL_FEEDBACKS } from "./constants";
-import { EventData, UserAccount, Booking, Feedback, TicketTier, BookedSeat } from "./types";
+import {
+  EventData,
+  UserAccount,
+  Booking,
+  Feedback,
+  TicketTier,
+  BookedSeat,
+} from "./types";
 
 // Components
 import { Overlay } from "./components/common/Overlay";
@@ -23,6 +30,7 @@ import { OrganizerDashboardModal } from "./components/events/OrganizerDashboardM
 
 // Styles
 import "./index.css";
+import { fetchCurrentUser, logout } from "./api/auth";
 
 // Dynamic initializer to populate initial seat bookings across different platforms
 const INITIALIZE_EVENTS_SEATS = (allEvents: EventData[]): EventData[] => {
@@ -34,7 +42,7 @@ const INITIALIZE_EVENTS_SEATS = (allEvents: EventData[]): EventData[] => {
         const bookedSeatList: BookedSeat[] = [];
         const rows = ["A", "B", "C", "D", "E", "F", "G", "H"];
         const seatsPerRow = 10;
-        
+
         const platforms: ("Hapenly" | "BookMyShow" | "Paytm Insider")[] = [
           "Hapenly",
           "BookMyShow",
@@ -58,9 +66,12 @@ const INITIALIZE_EVENTS_SEATS = (allEvents: EventData[]): EventData[] => {
           const seatId = `${row}${seatNum}`;
 
           const platform = platforms[i % platforms.length];
-          const customerName = platform === "Hapenly" ? names[i % names.length] : undefined;
+          const customerName =
+            platform === "Hapenly" ? names[i % names.length] : undefined;
           const hoursAgo = (i + 1) * 3;
-          const bookedAt = new Date(Date.now() - hoursAgo * 3600000).toISOString();
+          const bookedAt = new Date(
+            Date.now() - hoursAgo * 3600000,
+          ).toISOString();
 
           bookedSeatList.push({
             id: seatId,
@@ -86,7 +97,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [user, setUser] = useState<UserAccount | null>(null);
-  const [users, setUsers] = useState<Map<string, UserAccount>>(new Map());
+  const [authLoading, setAuthLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [showQR, setShowQR] = useState(false);
   const [latestBookings, setLatestBookings] = useState<Booking[]>([]);
@@ -95,7 +106,9 @@ export default function App() {
     count: number;
   } | null>(null);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>(INITIAL_FEEDBACKS);
-  const [events, setEvents] = useState<EventData[]>(() => INITIALIZE_EVENTS_SEATS(ALL_EVENTS));
+  const [events, setEvents] = useState<EventData[]>(() =>
+    INITIALIZE_EVENTS_SEATS(ALL_EVENTS),
+  );
   const [showHostModal, setShowHostModal] = useState(false);
   const [showOrganizerSubmit, setShowOrganizerSubmit] = useState(false);
   // ─── Seat Modal State ───
@@ -118,6 +131,33 @@ export default function App() {
   const [syncLogs, setSyncLogs] = useState<string[]>([]);
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
 
+  // ─── Persist Auth State ───
+  useEffect(() => {
+    let active = true;
+
+    async function restoreSession() {
+      try {
+        const currentUser = await fetchCurrentUser();
+
+        if (active) {
+          setUser(currentUser);
+        }
+      } catch (error) {
+        console.error("Unable to restore session");
+      } finally {
+        if (active) {
+          setAuthLoading(false);
+        }
+      }
+    }
+
+    restoreSession();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // ─── Derived Data ───
   const category = CATEGORIES.find((c) => c.id === selectedCategory)!;
   const filteredEvents = events.filter(
@@ -134,14 +174,16 @@ export default function App() {
       prev.map((e) =>
         e.id === eventId
           ? { ...e, isActive: e.isActive === false ? true : false }
-          : e
-      )
+          : e,
+      ),
     );
     // Visual alert feedback
     const target = events.find((e) => e.id === eventId);
     if (target) {
       const isNowActive = target.isActive === false;
-      addToast(`📢 Event "${target.title}" hosting is now ${isNowActive ? "Active" : "Stopped"}!`);
+      addToast(
+        `📢 Event "${target.title}" hosting is now ${isNowActive ? "Active" : "Stopped"}!`,
+      );
     }
   };
 
@@ -193,7 +235,7 @@ export default function App() {
           const rows = ["A", "B", "C", "D", "E", "F", "G", "H"];
           const seatsPerRow = 10;
           let selectedSeatId = "";
-          
+
           for (let i = 0; i < tier.totalSeats; i++) {
             const row = rows[Math.floor(i / seatsPerRow)] || "A";
             const num = (i % seatsPerRow) + 1;
@@ -210,8 +252,9 @@ export default function App() {
 
           if (selectedSeatId) {
             const platforms = ["BookMyShow", "Paytm Insider"] as const;
-            const platform = platforms[Math.floor(Math.random() * platforms.length)];
-            
+            const platform =
+              platforms[Math.floor(Math.random() * platforms.length)];
+
             setEvents((prev) =>
               prev.map((e) =>
                 e.id === ev.id
@@ -240,7 +283,9 @@ export default function App() {
             );
 
             // Only log to admin sync console — no public toast notification
-            addSyncLog(`Sync Success: Seat ${selectedSeatId} booked on ${platform}`);
+            addSyncLog(
+              `Sync Success: Seat ${selectedSeatId} booked on ${platform}`,
+            );
           }
         }
       }
@@ -252,13 +297,14 @@ export default function App() {
   const handleForceSync = () => {
     addSyncLog("Connecting to BookMyShow API gateway...");
     addSyncLog("Connecting to Paytm Insider API gateway...");
-    
+
     // Simulate syncing 1 random seat
     setTimeout(() => {
       // Pick random event
       const ev = events[Math.floor(Math.random() * events.length)];
       if (!ev) return;
-      const tier = ev.ticketTiers[Math.floor(Math.random() * ev.ticketTiers.length)];
+      const tier =
+        ev.ticketTiers[Math.floor(Math.random() * ev.ticketTiers.length)];
       if (!tier) return;
 
       const booked = tier.bookedSeatList?.length ?? tier.bookedSeats;
@@ -269,7 +315,7 @@ export default function App() {
         const rows = ["A", "B", "C", "D", "E", "F", "G", "H"];
         const seatsPerRow = 10;
         let selectedSeatId = "";
-        
+
         for (let i = 0; i < tier.totalSeats; i++) {
           const row = rows[Math.floor(i / seatsPerRow)] || "A";
           const num = (i % seatsPerRow) + 1;
@@ -312,8 +358,12 @@ export default function App() {
                 : e,
             ),
           );
-          addSyncLog(`Force Sync Complete: Synced seat ${selectedSeatId} from ${platform}`);
-          addToast(`🔄 Forced Sync: Seat ${selectedSeatId} booked via ${platform}!`);
+          addSyncLog(
+            `Force Sync Complete: Synced seat ${selectedSeatId} from ${platform}`,
+          );
+          addToast(
+            `🔄 Forced Sync: Seat ${selectedSeatId} booked via ${platform}!`,
+          );
         }
       } else {
         addSyncLog("Force Sync: All databases in sync. No changes.");
@@ -344,7 +394,7 @@ export default function App() {
     };
 
     setBookings((prev) => [...prev, newBooking]);
-    
+
     // Update the tier's bookedSeatList and remove from heldSeatList in state
     setEvents((prev) =>
       prev.map((e) =>
@@ -361,7 +411,10 @@ export default function App() {
                   bookedAt: new Date().toISOString(),
                 }));
 
-                const updatedBookedList = [...(t.bookedSeatList || []), ...newBookedSeats];
+                const updatedBookedList = [
+                  ...(t.bookedSeatList || []),
+                  ...newBookedSeats,
+                ];
                 const updatedHeldList = (t.heldSeatList || []).filter(
                   (h) => !selectedSeats.includes(h.id),
                 );
@@ -400,10 +453,16 @@ export default function App() {
 
   const handleSeatProceed = (selectedSeats: string[]) => {
     if (!seatModal) return;
-    const currentUser = user || { id: "dev-user", username: "Guest User", email: "guest@example.com", phone: "1234567890", password: "" };
-    
+    const currentUser = user || {
+      id: "dev-user",
+      username: "Guest User",
+      email: "guest@example.com",
+      phone: "1234567890",
+      password: "",
+    };
+
     const expiresAt = Date.now() + 600 * 1000; // 10 minutes hold timer
-    
+
     // Update held list for this tier
     setEvents((prev) =>
       prev.map((e) =>
@@ -419,7 +478,10 @@ export default function App() {
                   userId: currentUser.id,
                 }));
 
-                const updatedHeldList = [...(t.heldSeatList || []), ...newHeldSeats];
+                const updatedHeldList = [
+                  ...(t.heldSeatList || []),
+                  ...newHeldSeats,
+                ];
 
                 return {
                   ...t,
@@ -505,7 +567,11 @@ export default function App() {
     setCheckoutState(null);
   };
 
-  const handlePaymentSuccess = (details: { name: string; phone: string; email: string }) => {
+  const handlePaymentSuccess = (details: {
+    name: string;
+    phone: string;
+    email: string;
+  }) => {
     if (!checkoutState) return;
     const currentUser = {
       id: user?.id || `guest-${Date.now()}`,
@@ -527,16 +593,13 @@ export default function App() {
   const handleAuthSuccess = (loggedUser: UserAccount) => {
     setUser(loggedUser);
     setShowAuth(false);
+    addToast(`Welcome back, ${loggedUser.username}!`);
     if (pendingBook) {
       const { event: ev } = pendingBook;
       setPendingBook(null);
       // After login, reopen the event detail so they can select seats
       setSelectedEvent(ev);
     }
-  };
-
-  const handleRegister = (newUser: UserAccount) => {
-    setUsers((prev) => new Map(prev).set(newUser.id, newUser));
   };
 
   const addFeedback = (fb: Omit<Feedback, "id">) => {
@@ -662,35 +725,86 @@ export default function App() {
               Reviews
             </a>
 
-            {user ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #C84B31, #F5A623)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                    fontWeight: 800,
-                    fontSize: 13,
-                  }}
-                >
-                  {user.username[0].toUpperCase()}
+            {authLoading ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  color: "white",
+                  fontSize: 13,
+                }}
+              >
+                <span className="auth-spinner" />
+                Getting things ready...
+              </div>
+            ) : user ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #C84B31, #F5A623)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontWeight: 800,
+                      fontSize: 13,
+                    }}
+                  >
+                    {user.username[0].toUpperCase()}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <span
+                      style={{ color: "white", fontSize: 13, fontWeight: 600 }}
+                    >
+                      {user.username}
+                    </span>
+                    <span
+                      style={{ color: "rgba(255,255,255,0.6)", fontSize: 11 }}
+                    >
+                      {user.email}
+                    </span>
+                  </div>
                 </div>
                 <button
-                  onClick={() => setUser(null)}
+                  onClick={async () => {
+                    try {
+                      await logout();
+                      setUser(null);
+                      addToast("Logged out successfully!");
+                    } catch (error) {
+                      console.error("Logout failed:", error);
+                      addToast("Unable to log out. Please try again.");
+                    }
+                  }}
                   style={{
                     color: "rgba(255,255,255,0.6)",
-                    fontSize: 11,
-                    background: "none",
-                    border: "1px solid rgba(255,255,255,0.2)",
+                    fontSize: 12,
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
                     borderRadius: 6,
-                    padding: "4px 8px",
+                    padding: "6px 12px",
                     cursor: "pointer",
+                    marginLeft: 4,
+                    transition: "all 0.2s",
                   }}
+                  onMouseOver={(e) =>
+                    (e.currentTarget.style.background = "rgba(255,255,255,0.1)")
+                  }
+                  onMouseOut={(e) =>
+                    (e.currentTarget.style.background =
+                      "rgba(255,255,255,0.05)")
+                  }
                 >
                   Sign out
                 </button>
@@ -1119,8 +1233,6 @@ export default function App() {
               setPendingBook(null);
             }}
             onSuccess={handleAuthSuccess}
-            users={users}
-            onRegister={handleRegister}
           />
         </Overlay>
       )}

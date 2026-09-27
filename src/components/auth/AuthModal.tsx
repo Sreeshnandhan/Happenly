@@ -1,21 +1,18 @@
 import { useState } from "react";
-import { UserAccount } from "../../types";
+import type { UserAccount } from "../../types";
 import { Field } from "../common/Field";
+import { login, register } from "../../api/auth";
 
 export function AuthModal({
   mode,
   onToggleMode,
   onClose,
   onSuccess,
-  users,
-  onRegister,
 }: {
   mode: "login" | "register";
   onToggleMode: () => void;
   onClose: () => void;
   onSuccess: (user: UserAccount) => void;
-  users: Map<string, UserAccount>;
-  onRegister: (user: UserAccount) => void;
 }) {
   const [identifier, setIdentifier] = useState("");
   const [username, setUsername] = useState("");
@@ -24,78 +21,131 @@ export function AuthModal({
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState<"USER" | "ORGANIZER">("USER");
 
-  const handleLogin = () => {
+  // Clear all fields when switching between login and signup.
+  const clearForm = () => {
+    setIdentifier("");
+    setUsername("");
+    setEmail("");
+    setPhone("");
+    setPassword("");
+    setConfirm("");
     setError("");
-    if (!identifier || !password) {
+    setSuccess("");
+    setRole("USER");
+  };
+
+  const handleToggleMode = () => {
+    clearForm();
+    onToggleMode();
+  };
+
+  const handleLogin = async () => {
+    setError("");
+    setSuccess("");
+
+    if (!identifier.trim() || !password) {
       setError("Please fill in all fields.");
       return;
     }
-    const user = [...users.values()].find(
-      (u) =>
-        (u.email === identifier ||
-          u.phone === identifier ||
-          u.username === identifier) &&
-        u.password === password,
-    );
-    if (!user) {
-      setError(
-        "Invalid credentials. Check your username / email / phone and password.",
-      );
-      return;
-    }
+
     setLoading(true);
-    setTimeout(() => {
+
+    try {
+      const loggedUser = await login({
+        identifier: identifier.trim(),
+        password,
+      });
+
+      clearForm();
+      onSuccess(loggedUser);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login error");
+    } finally {
       setLoading(false);
-      onSuccess(user);
-    }, 700);
+    }
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     setError("");
-    if (!username || !email || !phone || !password || !confirm) {
+    setSuccess("");
+
+    if (
+      !username.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !password ||
+      !confirm
+    ) {
       setError("All fields are required.");
       return;
     }
+
     if (password !== confirm) {
       setError("Passwords do not match.");
       return;
     }
+
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
-    if (!/\S+@\S+\.\S+/.test(email)) {
+
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
       setError("Please enter a valid email address.");
       return;
     }
-    if (!/^\+?[\d\s\-]{10,}$/.test(phone)) {
+
+    // Allow +, spaces and hyphens in phone numbers.
+    const digitsOnly = phone.replace(/\D/g, "");
+
+    if (digitsOnly.length < 10 || digitsOnly.length > 15) {
       setError("Please enter a valid phone number.");
       return;
     }
-    const exists = [...users.values()].find(
-      (u) => u.email === email || u.phone === phone,
-    );
-    if (exists) {
-      setError("An account with this email or phone number already exists.");
-      return;
-    }
-    setLoading(true);
-    setTimeout(() => {
-      const newUser: UserAccount = {
-        id: `user-${Date.now()}`,
-        username,
-        email,
-        phone,
-        password,
-      };
-      onRegister(newUser);
-      setLoading(false);
-      onSuccess(newUser);
-    }, 900);
-  };
 
+    setLoading(true);
+
+    try {
+      await register({
+        name: username.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        password,
+        role,
+      });
+
+      // Clear signup fields and login credentials.
+      setIdentifier("");
+      setUsername("");
+      setEmail("");
+      setPhone("");
+      setPassword("");
+      setConfirm("");
+
+      setSuccess("Account created successfully! Please sign in.");
+
+      // Switch to an empty login form after 2 seconds.
+      setTimeout(() => {
+        setSuccess("");
+        setIdentifier("");
+        setPassword("");
+        onToggleMode();
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Registration error");
+    } finally {
+      setLoading(false);
+    }
+  };
+  console.log("Auth form state:", {
+    mode,
+    email: identifier,
+    passwordLength: password.length,
+  });
   return (
     <div
       style={{
@@ -106,7 +156,12 @@ export function AuthModal({
       }}
     >
       {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+      <div
+        style={{
+          textAlign: "center",
+          marginBottom: "1.5rem",
+        }}
+      >
         <div
           style={{
             width: 60,
@@ -122,6 +177,7 @@ export function AuthModal({
         >
           {mode === "login" ? "🔑" : "✨"}
         </div>
+
         <h2
           style={{
             fontFamily: "'Playfair Display', serif",
@@ -133,40 +189,133 @@ export function AuthModal({
         >
           {mode === "login" ? "Welcome Back" : "Create Your Account"}
         </h2>
-        <p style={{ fontSize: 14, color: "#6B7280", margin: 0 }}>
+
+        <p
+          style={{
+            fontSize: 14,
+            color: "#6B7280",
+            margin: 0,
+          }}
+        >
           {mode === "login"
             ? "Sign in to book events and access your tickets"
             : "Join thousands of event-goers across Bengaluru"}
         </p>
       </div>
 
+      {/* Form */}
       <div
-        style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.875rem",
+        }}
       >
         {mode === "login" ? (
           <>
             <Field
-              label="Username / Email / Phone"
-              placeholder="Enter your username, email, or phone"
+              label="Email"
+              type="email"
+              placeholder="Enter your email"
               value={identifier}
               onChange={setIdentifier}
+              autoComplete="off"
             />
+
             <Field
               label="Password"
               type="password"
               placeholder="Enter your password"
               value={password}
               onChange={setPassword}
+              autoComplete="off"
             />
           </>
         ) : (
           <>
+            <div>
+              <p
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#1B2B4E",
+                  marginBottom: 10,
+                }}
+              >
+                I'm joining as
+              </p>
+
+              <div style={{ display: "flex", gap: 12 }}>
+                {(
+                  [
+                    {
+                      value: "USER",
+                      title: "Event Lover",
+                      description: "Discover and book events",
+                      icon: "🎟️",
+                    },
+                    {
+                      value: "ORGANIZER",
+                      title: "Organizer",
+                      description: "Host and manage events",
+                      icon: "🎤",
+                    },
+                  ] as const
+                ).map((option) => (
+                  <label
+                    key={option.value}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: 12,
+                      borderRadius: 12,
+                      border:
+                        role === option.value
+                          ? "2px solid #C84B31"
+                          : "1px solid #E5E7EB",
+                      background: role === option.value ? "#FEF2EE" : "#FFFFFF",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 5,
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="accountRole"
+                      value={option.value}
+                      checked={role === option.value}
+                      onChange={() => setRole(option.value)}
+                      style={{ accentColor: "#C84B31" }}
+                    />
+
+                    <span style={{ fontSize: 23 }}>{option.icon}</span>
+
+                    <span
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: "#1B2B4E",
+                      }}
+                    >
+                      {option.title}
+                    </span>
+
+                    <span style={{ fontSize: 12, color: "#6B7280" }}>
+                      {option.description}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <Field
               label="Username"
               placeholder="Choose a username"
               value={username}
               onChange={setUsername}
             />
+
             <Field
               label="Email Address"
               type="email"
@@ -174,6 +323,7 @@ export function AuthModal({
               value={email}
               onChange={setEmail}
             />
+
             <Field
               label="Phone Number"
               type="tel"
@@ -181,6 +331,7 @@ export function AuthModal({
               value={phone}
               onChange={setPhone}
             />
+
             <Field
               label="Password"
               type="password"
@@ -188,6 +339,7 @@ export function AuthModal({
               value={password}
               onChange={setPassword}
             />
+
             <Field
               label="Confirm Password"
               type="password"
@@ -198,6 +350,7 @@ export function AuthModal({
           </>
         )}
 
+        {/* Error message */}
         {error && (
           <div
             style={{
@@ -213,9 +366,28 @@ export function AuthModal({
           </div>
         )}
 
+        {/* Success message */}
+        {success && (
+          <div
+            style={{
+              background: "#F0FDF4",
+              border: "1px solid #BBF7D0",
+              borderRadius: 10,
+              padding: "10px 14px",
+              fontSize: 13,
+              color: "#16A34A",
+              textAlign: "center",
+              fontWeight: 500,
+            }}
+          >
+            ✅ {success}
+          </div>
+        )}
+
+        {/* Submit button */}
         <button
           onClick={mode === "login" ? handleLogin : handleRegister}
-          disabled={loading}
+          disabled={loading || Boolean(success)}
           style={{
             background: loading
               ? "#9CA3AF"
@@ -226,7 +398,7 @@ export function AuthModal({
             padding: "14px",
             fontSize: 15,
             fontWeight: 700,
-            cursor: loading ? "default" : "pointer",
+            cursor: loading || success ? "default" : "pointer",
             fontFamily: "inherit",
             transition: "opacity 0.2s",
             marginTop: 4,
@@ -237,15 +409,26 @@ export function AuthModal({
             ? "⏳ Please wait…"
             : mode === "login"
               ? "🚀 Sign In"
-              : "🎉 Create Account & Book"}
+              : role === "ORGANIZER"
+                ? "🎤 Create Organizer Account"
+                : "🎉 Create Account & Book"}
         </button>
 
-        <div style={{ textAlign: "center", fontSize: 14, color: "#6B7280" }}>
+        {/* Switch between login and signup */}
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 14,
+            color: "#6B7280",
+          }}
+        >
           {mode === "login"
             ? "Don't have an account? "
             : "Already have an account? "}
+
           <button
-            onClick={onToggleMode}
+            onClick={handleToggleMode}
+            disabled={loading}
             style={{
               color: "#C84B31",
               fontWeight: 700,
@@ -260,6 +443,7 @@ export function AuthModal({
           </button>
         </div>
 
+        {/* Close modal */}
         <button
           onClick={onClose}
           style={{

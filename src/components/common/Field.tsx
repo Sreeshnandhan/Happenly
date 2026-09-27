@@ -6,14 +6,17 @@ export function Field({
   placeholder,
   value,
   onChange,
+  autoComplete = "off",
 }: {
   label: string;
   type?: string;
   placeholder: string;
   value: string;
   onChange: (v: string) => void;
+  autoComplete?: string;
 }) {
   const [focused, setFocused] = useState(false);
+
   return (
     <div>
       <label
@@ -27,6 +30,7 @@ export function Field({
       >
         {label}
       </label>
+
       <input
         type={type}
         placeholder={placeholder}
@@ -34,6 +38,7 @@ export function Field({
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        autoComplete={autoComplete}
         style={{
           width: "100%",
           padding: "12px 14px",

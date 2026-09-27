@@ -60,7 +60,7 @@ export interface UserAccount {
   username: string;
   email: string;
   phone: string;
-  password: string;
+  password?: string;
 }
 
 /**
