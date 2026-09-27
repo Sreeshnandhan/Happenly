@@ -255,7 +255,7 @@ export function TicketSeatModal({
                     onClick={() => { setQty((q) => Math.min(maxQty, q + 1)); if (!holdStarted) setHoldStarted(true); }}
                     style={{
                       width: 40, height: 40, borderRadius: "50%", border: "2px solid #1B2B4E",
-                      background: "#1B2B4E", fontSize: 20, fontWeight: 700, cursor: qty >= maxQty ? "not-allowed" : "pointer",
+                      fontSize: 20, fontWeight: 700, cursor: qty >= maxQty ? "not-allowed" : "pointer",
                       color: qty >= maxQty ? "#9CA3AF" : "white",
                       background: qty >= maxQty ? "#E5E7EB" : "#1B2B4E",
                       display: "flex", alignItems: "center", justifyContent: "center",
