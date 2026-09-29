@@ -1,7 +1,7 @@
 // src/api/auth.ts
 // Wrapper for authentication endpoints — all requests go through Vite proxy to backend
 
-import type { UserAccount } from '../types';
+import type { UserAccount } from "../types";
 
 export interface LoginPayload {
   identifier: string; // email, phone or username
@@ -29,17 +29,17 @@ function toUserAccount(u: BackendUser): UserAccount {
     id: u.id,
     username: u.name,
     email: u.email,
-    phone: u.phone ?? '',
+    phone: u.phone ?? "",
   };
 }
 
-const API_BASE = '/api/auth'; // Vite dev server proxies to backend
+const API_BASE = `${import.meta.env.VITE_API_URL}/api/auth`;
 
 export async function login(payload: LoginPayload): Promise<UserAccount> {
   const resp = await fetch(`${API_BASE}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include', // send/receive HttpOnly cookie
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include", // send/receive HttpOnly cookie
     body: JSON.stringify({
       email: payload.identifier, // backend expects email field
       password: payload.password,
@@ -59,9 +59,9 @@ export async function login(payload: LoginPayload): Promise<UserAccount> {
 
 export async function register(payload: RegisterPayload): Promise<UserAccount> {
   const resp = await fetch(`${API_BASE}/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   let data: any = {};
@@ -78,16 +78,16 @@ export async function register(payload: RegisterPayload): Promise<UserAccount> {
 
 export async function logout(): Promise<void> {
   await fetch(`${API_BASE}/logout`, {
-    method: 'POST',
-    credentials: 'include',
+    method: "POST",
+    credentials: "include",
   });
 }
 
 export async function fetchCurrentUser(): Promise<UserAccount | null> {
   try {
     const resp = await fetch(`${API_BASE}/me`, {
-      method: 'GET',
-      credentials: 'include',
+      method: "GET",
+      credentials: "include",
     });
     if (!resp.ok) return null;
     const data = await resp.json();
