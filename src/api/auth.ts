@@ -13,6 +13,7 @@ export interface RegisterPayload {
   email: string;
   phone: string;
   password: string;
+  role?: "USER" | "ORGANIZER";
 }
 
 // Backend returns { id, name, email, phone, role } — we map `name` → `username`
@@ -33,7 +34,27 @@ function toUserAccount(u: BackendUser): UserAccount {
   };
 }
 
-const API_BASE = `${import.meta.env.VITE_API_URL}/api/auth`;
+const API_BASE = `${(import.meta.env.VITE_API_URL || "").replace(/\/$/, "")}/api/auth`;
+
+async function passwordRequest(path: string, payload: object): Promise<string> {
+  const response = await fetch(`${API_BASE}/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new Error(
+      data.message || "Unable to complete your request. Please try again.",
+    );
+  return data.message;
+}
+
+export const forgotPassword = (email: string) =>
+  passwordRequest("forgot-password", { email });
+export const resetPassword = (token: string, password: string) =>
+  passwordRequest("reset-password", { token, password });
 
 export async function login(payload: LoginPayload): Promise<UserAccount> {
   const resp = await fetch(`${API_BASE}/login`, {

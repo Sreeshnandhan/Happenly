@@ -94,7 +94,9 @@ export default function App() {
   // ─── State Management ───
   const [selectedCategory, setSelectedCategory] = useState("art");
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
-  const [showAuth, setShowAuth] = useState(false);
+  const [showAuth, setShowAuth] = useState(
+    () => new URLSearchParams(window.location.search).get("signin") === "1",
+  );
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [user, setUser] = useState<UserAccount | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
