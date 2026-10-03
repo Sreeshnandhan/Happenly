@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { UserAccount } from "../../types";
 import { Field } from "../common/Field";
 import { login, register } from "../../api/auth";
+import { PasswordRecovery } from "./PasswordRecovery";
 
 export function AuthModal({
   mode,
@@ -24,6 +25,7 @@ export function AuthModal({
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<"USER" | "ORGANIZER">("USER");
+  const [recovering, setRecovering] = useState(false);
 
   // Clear all fields when switching between login and signup.
   const clearForm = () => {
@@ -141,11 +143,16 @@ export function AuthModal({
       setLoading(false);
     }
   };
-  console.log("Auth form state:", {
-    mode,
-    email: identifier,
-    passwordLength: password.length,
-  });
+  if (recovering)
+    return (
+      <PasswordRecovery
+        initialEmail={identifier}
+        onBack={() => {
+          setRecovering(false);
+          clearForm();
+        }}
+      />
+    );
   return (
     <div
       style={{
@@ -230,6 +237,24 @@ export function AuthModal({
               onChange={setPassword}
               autoComplete="off"
             />
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                setPassword("");
+                setRecovering(true);
+              }}
+              style={{
+                alignSelf: "flex-end",
+                color: "#C84B31",
+                border: 0,
+                background: "none",
+                cursor: "pointer",
+                fontSize: 14,
+              }}
+            >
+              Forgot password?
+            </button>
           </>
         ) : (
           <>
