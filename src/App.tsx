@@ -637,7 +637,7 @@ export default function App() {
         }}
       >
         <div
-          className="main-container"
+          className="main-container header-content"
           style={{
             display: "flex",
             alignItems: "center",
@@ -678,6 +678,7 @@ export default function App() {
 
           {/* Nav Links */}
           <nav
+            className="header-navigation"
             style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}
           >
             <button
@@ -741,11 +742,23 @@ export default function App() {
                 Getting things ready...
               </div>
             ) : user ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div
+                className="header-account"
+                style={{ display: "flex", alignItems: "center", gap: 12 }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    minWidth: 0,
+                    maxWidth: "100%",
+                  }}
+                >
                   <div
                     style={{
                       width: 34,
+                      flexShrink: 0,
                       height: 34,
                       borderRadius: "50%",
                       background: "linear-gradient(135deg, #C84B31, #F5A623)",
@@ -760,6 +773,7 @@ export default function App() {
                     {user.username[0].toUpperCase()}
                   </div>
                   <div
+                    className="header-account-details"
                     style={{
                       display: "flex",
                       flexDirection: "column",
@@ -1170,7 +1184,8 @@ export default function App() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fill, minmax(min(280px, 100%), 1fr))",
               gap: "1.5rem",
             }}
           >

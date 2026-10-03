@@ -1,6 +1,90 @@
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap");
 @import "tailwindcss";
 
+.modal-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  height: 100dvh;
+  padding: max(1rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  box-sizing: border-box;
+}
+
+.modal-panel {
+  width: 100%;
+  max-width: 540px;
+  max-height: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  border-radius: 20px;
+  scrollbar-gutter: stable;
+}
+
+.auth-card {
+  padding: 2rem;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+
+.auth-role-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .modal-overlay {
+    padding: max(0.75rem, env(safe-area-inset-top))
+      max(0.75rem, env(safe-area-inset-right))
+      max(0.75rem, env(safe-area-inset-bottom))
+      max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .auth-card {
+    padding: 1.25rem;
+  }
+
+  .header-content {
+    height: auto !important;
+    min-height: 66px;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .header-navigation {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  .header-navigation > button {
+    padding: 8px 10px !important;
+  }
+
+  .header-account {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .header-account-details {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 360px) {
+  .auth-role-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* App.css */
 
 /* App.css */

@@ -155,10 +155,10 @@ export function AuthModal({
     );
   return (
     <div
+      className="auth-card"
       style={{
         background: "white",
         borderRadius: 20,
-        padding: "2rem",
         boxShadow: "0 30px 80px rgba(0,0,0,0.25)",
       }}
     >
@@ -270,7 +270,7 @@ export function AuthModal({
                 I'm joining as
               </p>
 
-              <div style={{ display: "flex", gap: 12 }}>
+              <div className="auth-role-options">
                 {(
                   [
                     {
