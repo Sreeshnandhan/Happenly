@@ -1,69 +1,92 @@
-import { useState } from "react";
-import { CATEGORIES } from "../../constants";
-
-// Web3Forms access key — replace with your real key
-const WEB3FORMS_KEY = "YOUR_ACCESS_KEY_HERE";
+import { useEffect, useRef, useState } from "react";
+import { fetchEventCategories, submitEvent } from "../../api/events";
+import type { EventCategoryOption } from "../../api/events";
+import "./event-submission.css";
 
 export function OrganizerSubmitModal({ onClose }: { onClose: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
-
+  const [categories, setCategories] = useState<EventCategoryOption[]>([]);
+  const [categoryLoading, setCategoryLoading] = useState(true);
+  const [categoryError, setCategoryError] = useState("");
+  const [categoryReload, setCategoryReload] = useState(0);
+  const imageInput = useRef<HTMLInputElement>(null);
+  const [image, setImage] = useState<File | null>(null);
+  const [imageError, setImageError] = useState("");
+  const [preview, setPreview] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    setCategoryLoading(true);
+    setCategoryError("");
+    fetchEventCategories(controller.signal)
+      .then((items) => {
+        if (!controller.signal.aborted) {
+          setCategories(items);
+          if (!items.length)
+            setCategoryError(
+              "No categories are available. Please contact the Hapenly team.",
+            );
+        }
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted)
+          setCategoryError(
+            err instanceof Error ? err.message : "Unable to load categories.",
+          );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCategoryLoading(false);
+      });
+    return () => controller.abort();
+  }, [categoryReload]);
+  useEffect(() => {
+    if (!image) {
+      setPreview("");
+      return;
+    }
+    const url = URL.createObjectURL(image);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [image]);
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSubmitting || imageError || categoryLoading || categoryError) return;
+    const values = new FormData(e.currentTarget);
+    const payload = new FormData();
+    const fields: Record<string, string> = {
+      categoryId: "category",
+      name: "event_name",
+      description: "description",
+      date: "date",
+      startTime: "time",
+      location: "location",
+      hostedBy: "hosted_by",
+      duration: "duration",
+      ageRequirement: "age",
+      totalSeats: "seats",
+      ticketPrice: "ticket_price",
+      organizerName: "organizer_name",
+      organizerPhone: "organizer_phone",
+    };
+    for (const [apiName, formName] of Object.entries(fields))
+      payload.append(apiName, String(values.get(formName) ?? "").trim());
+    if (image) payload.append("image", image);
     setIsSubmitting(true);
     setError("");
-
-    const formData = new FormData(e.currentTarget);
-
-    const category = formData.get("category") as string;
-    const categoryLabel = CATEGORIES.find((c) => c.id === category)?.label ?? category;
-
-    const fields: Record<string, FormDataEntryValue | null> = {
-      "Category": categoryLabel,
-      "Event Name": formData.get("event_name"),
-      "Description": formData.get("description"),
-      "Date": formData.get("date"),
-      "Time": formData.get("time"),
-      "Location": formData.get("location"),
-      "Hosted By": formData.get("hosted_by"),
-      "Duration": formData.get("duration"),
-      "Age Group": formData.get("age"),
-      "Number of Seats": formData.get("seats"),
-      "Organizer Name": formData.get("organizer_name"),
-      "Organizer Phone": formData.get("organizer_phone"),
-    };
-
-    const messageLines = Object.entries(fields)
-      .map(([k, v]) => `${k}: ${v}`)
-      .join("\n");
-
-    const web3Data = new FormData();
-    web3Data.append("access_key", WEB3FORMS_KEY);
-    web3Data.append("subject", `New Event Request: ${formData.get("event_name")}`);
-    web3Data.append("message", messageLines);
-    web3Data.append("from_name", formData.get("organizer_name") as string);
-
     try {
-      const res = await fetch("https://api.web3forms.com/submit", {
-        method: "POST",
-        body: web3Data,
-      });
-      const json = await res.json();
-
-      if (json.success) {
-        setSubmitted(true);
-      } else {
-        setError("Submission failed. Please try again or contact us directly.");
-      }
-    } catch {
-      // Still show success to not block organizer
+      await submitEvent(payload);
       setSubmitted(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Submission failed. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
-
   /* ── Success Screen ── */
   if (submitted) {
     return (
@@ -89,9 +112,7 @@ export function OrganizerSubmitModal({ onClose }: { onClose: () => void }) {
             }}
           >
             Thank you for submitting your event. Our team will review the
-            details and get back to you within{" "}
-            <strong>24–48 hours</strong>. Once approved, your event will be
-            published on Hapenly.in.
+            details. Your request is now available in the admin review queue.
           </p>
           <div
             style={{
@@ -132,7 +153,6 @@ export function OrganizerSubmitModal({ onClose }: { onClose: () => void }) {
       </div>
     );
   }
-
   /* ── Form ── */
   return (
     <div style={wrapStyle}>
@@ -205,7 +225,6 @@ export function OrganizerSubmitModal({ onClose }: { onClose: () => void }) {
           publish the event after approval.
         </p>
       </div>
-
       {/* Review Notice Banner */}
       <div
         style={{
@@ -219,164 +238,299 @@ export function OrganizerSubmitModal({ onClose }: { onClose: () => void }) {
       >
         <span style={{ fontSize: 18 }}>⏳</span>
         <span style={{ fontSize: 12, color: "#92400E", fontWeight: 700 }}>
-          Events are reviewed by our team before being published — usually
-          within 24–48 hours.
+          Events are reviewed by our team before being published.
         </span>
       </div>
-
-      <form onSubmit={handleSubmit} style={{ padding: "2rem" }}>
-        <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}
+      <form onSubmit={handleSubmit} className="event-submission-form">
+        {categoryError && (
+          <div role="alert" style={{ color: "#B91C1C", marginBottom: 16 }}>
+            {categoryError}{" "}
+            <button
+              type="button"
+              className="event-secondary-button"
+              onClick={() => setCategoryReload((n) => n + 1)}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        <fieldset
+          disabled={isSubmitting}
+          style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
         >
-          {/* Category */}
-          <div style={{ gridColumn: "span 2" }}>
-            <label style={labelStyle}>Event Category *</label>
-            <select name="category" required style={inputStyle}>
-              <option value="">— Choose a Category —</option>
-              {CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.emoji} {c.label}
+          <div className="event-submission-grid">
+            {/* Category */}
+            <div style={{ gridColumn: "span 2" }}>
+              <label style={labelStyle} htmlFor="event-category">
+                Event Category *
+              </label>
+              <select
+                id="event-category"
+                name="category"
+                required
+                disabled={categoryLoading || !!categoryError}
+                style={inputStyle}
+              >
+                <option value="">
+                  {categoryLoading
+                    ? "Loading categories…"
+                    : "— Choose a Category —"}
                 </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Event Name */}
-          <div style={{ gridColumn: "span 2" }}>
-            <label style={labelStyle}>Event Name *</label>
-            <input
-              name="event_name"
-              required
-              placeholder="e.g. Chennai Watercolor Sunday"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Description */}
-          <div style={{ gridColumn: "span 2" }}>
-            <label style={labelStyle}>Description *</label>
-            <textarea
-              name="description"
-              required
-              rows={3}
-              placeholder="Tell us what makes this event special..."
-              style={{ ...inputStyle, resize: "vertical" }}
-            />
-          </div>
-
-          {/* Date */}
-          <div>
-            <label style={labelStyle}>Date *</label>
-            <input type="date" name="date" required style={inputStyle} />
-          </div>
-
-          {/* Time */}
-          <div>
-            <label style={labelStyle}>Time *</label>
-            <input type="time" name="time" required style={inputStyle} />
-          </div>
-
-          {/* Location */}
-          <div style={{ gridColumn: "span 2" }}>
-            <label style={labelStyle}>Location / Venue *</label>
-            <input
-              name="location"
-              required
-              placeholder="Full address or venue name"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Hosted By */}
-          <div>
-            <label style={labelStyle}>Hosted By *</label>
-            <input
-              name="hosted_by"
-              required
-              placeholder="e.g. Studio 14 or Priya Menon"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Duration */}
-          <div>
-            <label style={labelStyle}>Time Duration *</label>
-            <input
-              name="duration"
-              required
-              placeholder="e.g. 3 Hours"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Age */}
-          <div>
-            <label style={labelStyle}>Age Group *</label>
-            <input
-              name="age"
-              required
-              placeholder="e.g. 18+ or All Ages"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Seats */}
-          <div>
-            <label style={labelStyle}>Number of Seats *</label>
-            <input
-              type="number"
-              name="seats"
-              required
-              min={1}
-              placeholder="e.g. 50"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Contact section divider */}
-          <div
-            style={{
-              gridColumn: "span 2",
-              borderTop: "1px dashed #E5E7EB",
-              paddingTop: "1rem",
-            }}
-          >
-            <p
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* Event Name */}
+            <div style={{ gridColumn: "span 2" }}>
+              <label style={labelStyle} htmlFor="event-event_name">
+                Event Name *
+              </label>
+              <input
+                id="event-event_name"
+                name="event_name"
+                required
+                placeholder="e.g. Chennai Watercolor Sunday"
+                style={inputStyle}
+              />
+            </div>
+            {/* Description */}
+            <div style={{ gridColumn: "span 2" }}>
+              <label style={labelStyle} htmlFor="event-description">
+                Description *
+              </label>
+              <textarea
+                id="event-description"
+                name="description"
+                required
+                rows={3}
+                placeholder="Tell us what makes this event special..."
+                style={{ ...inputStyle, resize: "vertical" }}
+              />
+            </div>
+            {/* Date */}
+            <div>
+              <label style={labelStyle} htmlFor="event-date">
+                Date *
+              </label>
+              <input
+                type="date"
+                id="event-date"
+                name="date"
+                required
+                style={inputStyle}
+              />
+            </div>
+            {/* Time */}
+            <div>
+              <label style={labelStyle} htmlFor="event-time">
+                Time *
+              </label>
+              <input
+                type="time"
+                id="event-time"
+                name="time"
+                required
+                style={inputStyle}
+              />
+            </div>
+            {/* Location */}
+            <div style={{ gridColumn: "span 2" }}>
+              <label style={labelStyle} htmlFor="event-location">
+                Location / Venue *
+              </label>
+              <input
+                id="event-location"
+                name="location"
+                required
+                placeholder="Full address or venue name"
+                style={inputStyle}
+              />
+            </div>
+            {/* Hosted By */}
+            <div>
+              <label style={labelStyle} htmlFor="event-hosted_by">
+                Hosted By *
+              </label>
+              <input
+                id="event-hosted_by"
+                name="hosted_by"
+                required
+                placeholder="e.g. Studio 14 or Priya Menon"
+                style={inputStyle}
+              />
+            </div>
+            {/* Duration */}
+            <div>
+              <label style={labelStyle} htmlFor="event-duration">
+                Time Duration *
+              </label>
+              <input
+                id="event-duration"
+                name="duration"
+                required
+                placeholder="e.g. 3 Hours"
+                style={inputStyle}
+              />
+            </div>
+            {/* Age */}
+            <div>
+              <label style={labelStyle} htmlFor="event-age">
+                Age Group *
+              </label>
+              <input
+                id="event-age"
+                name="age"
+                required
+                placeholder="e.g. 18+ or All Ages"
+                style={inputStyle}
+              />
+            </div>
+            {/* Seats */}
+            <div>
+              <label style={labelStyle} htmlFor="event-seats">
+                Number of Seats *
+              </label>
+              <input
+                type="number"
+                id="event-seats"
+                name="seats"
+                required
+                min={1}
+                placeholder="e.g. 50"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle} htmlFor="event-ticket-price">
+                Ticket price (₹) *
+              </label>
+              <input
+                id="event-ticket-price"
+                type="number"
+                name="ticket_price"
+                required
+                min="0"
+                max="99999999.99"
+                step="0.01"
+                placeholder="0 for a free event"
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ gridColumn: "span 2" }}>
+              <label style={labelStyle} htmlFor="event-image">
+                Event image (optional)
+              </label>
+              <input
+                ref={imageInput}
+                id="event-image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={inputStyle}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setImageError("");
+                  if (
+                    file &&
+                    (!["image/jpeg", "image/png", "image/webp"].includes(
+                      file.type,
+                    ) ||
+                      file.size > 5 * 1024 * 1024)
+                  ) {
+                    setImageError(
+                      "Choose a JPG, PNG or WebP image, up to 5 MB.",
+                    );
+                    setImage(null);
+                    event.target.value = "";
+                    return;
+                  }
+                  setImage(file);
+                }}
+              />
+              <p style={{ fontSize: 12, color: "#6B7280" }}>
+                JPG, PNG or WebP · up to 5 MB · non-animated
+              </p>
+              {imageError && (
+                <p role="alert" style={{ color: "#B91C1C" }}>
+                  {imageError}
+                </p>
+              )}
+              {(preview || imageError) && (
+                <button
+                  type="button"
+                  className="event-secondary-button"
+                  onClick={() => {
+                    setImage(null);
+                    setImageError("");
+                    if (imageInput.current) imageInput.current.value = "";
+                  }}
+                >
+                  Remove image
+                </button>
+              )}
+              {preview && (
+                <img
+                  src={preview}
+                  alt="Event image preview"
+                  style={{
+                    width: "100%",
+                    maxHeight: 240,
+                    objectFit: "contain",
+                    borderRadius: 12,
+                  }}
+                />
+              )}
+            </div>
+            {/* Contact section divider */}
+            <div
               style={{
-                margin: "0 0 1rem",
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#1B2B4E",
+                gridColumn: "span 2",
+                borderTop: "1px dashed #E5E7EB",
+                paddingTop: "1rem",
               }}
             >
-              📞 Your Contact Details
-            </p>
+              <p
+                style={{
+                  margin: "0 0 1rem",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#1B2B4E",
+                }}
+              >
+                📞 Your Contact Details
+              </p>
+            </div>
+            {/* Organizer Name */}
+            <div>
+              <label style={labelStyle} htmlFor="event-organizer_name">
+                Organizer Name *
+              </label>
+              <input
+                id="event-organizer_name"
+                name="organizer_name"
+                required
+                placeholder="Your full name"
+                style={inputStyle}
+              />
+            </div>
+            {/* Organizer Phone */}
+            <div>
+              <label style={labelStyle} htmlFor="event-organizer_phone">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                id="event-organizer_phone"
+                name="organizer_phone"
+                required
+                placeholder="10-digit mobile number"
+                style={inputStyle}
+              />
+            </div>
           </div>
-
-          {/* Organizer Name */}
-          <div>
-            <label style={labelStyle}>Organizer Name *</label>
-            <input
-              name="organizer_name"
-              required
-              placeholder="Your full name"
-              style={inputStyle}
-            />
-          </div>
-
-          {/* Organizer Phone */}
-          <div>
-            <label style={labelStyle}>Phone Number *</label>
-            <input
-              type="tel"
-              name="organizer_phone"
-              required
-              placeholder="10-digit mobile number"
-              style={inputStyle}
-            />
-          </div>
-        </div>
-
+        </fieldset>
         {error && (
           <p
             style={{
@@ -389,10 +543,11 @@ export function OrganizerSubmitModal({ onClose }: { onClose: () => void }) {
             {error}
           </p>
         )}
-
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={
+            isSubmitting || categoryLoading || !!categoryError || !!imageError
+          }
           style={{
             width: "100%",
             marginTop: "2rem",
@@ -414,7 +569,6 @@ export function OrganizerSubmitModal({ onClose }: { onClose: () => void }) {
         >
           {isSubmitting ? "⏳ Sending your request..." : "📩 Submit for Review"}
         </button>
-
         <p
           style={{
             textAlign: "center",
@@ -429,17 +583,14 @@ export function OrganizerSubmitModal({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
-
 const wrapStyle: React.CSSProperties = {
   background: "white",
   borderRadius: 24,
   width: "100%",
   maxWidth: 640,
-  maxHeight: "90vh",
-  overflowY: "auto",
+
   boxShadow: "0 24px 60px rgba(0,0,0,0.22)",
 };
-
 const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: 12,
@@ -449,7 +600,6 @@ const labelStyle: React.CSSProperties = {
   textTransform: "uppercase",
   letterSpacing: "0.3px",
 };
-
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "11px 14px",

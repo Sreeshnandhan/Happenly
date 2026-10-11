@@ -96,14 +96,16 @@ export async function register(payload: RegisterPayload): Promise<UserAccount> {
   }
   return toUserAccount(data.user);
 }
-
 export async function logout(): Promise<void> {
-  await fetch(`${API_BASE}/logout`, {
+  const response = await fetch(`${API_BASE}/logout`, {
     method: "POST",
     credentials: "include",
   });
-}
 
+  if (!response.ok) {
+    throw new Error("Unable to log out. Please try again.");
+  }
+}
 export async function fetchCurrentUser(): Promise<UserAccount | null> {
   try {
     const resp = await fetch(`${API_BASE}/me`, {

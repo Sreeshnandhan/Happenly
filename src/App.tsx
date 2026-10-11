@@ -132,16 +132,49 @@ export default function App() {
   const [syncEnabled, setSyncEnabled] = useState(true);
   const [syncLogs, setSyncLogs] = useState<string[]>([]);
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
-  //const [user, setUser] = useState<UserAccount | null>(null);
 
-  //Admin condition
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+  // ─── Admin condition  ───
   const isAdmin = user?.role === "ADMIN";
+
+  const canHostEvent = user?.role === "ORGANIZER" || user?.role === "ADMIN";
+
   useEffect(() => {
     if (!isAdmin) {
       setShowOrganizerDashboard(false);
       setShowHostModal(false);
     }
   }, [isAdmin]);
+
+  // ─── logout Functionality  ───
+  const closeLogoutConfirm = () => {
+    if (loggingOut) return;
+
+    setShowLogoutConfirm(false);
+    setLogoutError("");
+  };
+
+  const handleConfirmLogout = async () => {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+    setLogoutError("");
+
+    try {
+      await logout();
+      setUser(null);
+      setShowLogoutConfirm(false);
+      addToast("Logged out successfully!");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setLogoutError("Unable to log out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   // ─── Persist Auth State ───
   useEffect(() => {
@@ -709,21 +742,23 @@ export default function App() {
                 💼 Organizer Console
               </button>
             )}
-            <button
-              onClick={() => setShowOrganizerSubmit(true)}
-              style={{
-                background: "transparent",
-                color: "#F5A623",
-                border: "1.5px solid #F5A623",
-                borderRadius: 10,
-                padding: "8px 16px",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              Host <span className="nav-links-desktop">an Event</span>
-            </button>
+            {canHostEvent && (
+              <button
+                onClick={() => setShowOrganizerSubmit(true)}
+                style={{
+                  background: "transparent",
+                  color: "#F5A623",
+                  border: "1.5px solid #F5A623",
+                  borderRadius: 10,
+                  padding: "8px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Host <span className="nav-links-desktop">an Event</span>
+              </button>
+            )}
             <a
               href="#events"
               className="nav-links-desktop"
@@ -804,15 +839,10 @@ export default function App() {
                   </div>
                 </div>
                 <button
-                  onClick={async () => {
-                    try {
-                      await logout();
-                      setUser(null);
-                      addToast("Logged out successfully!");
-                    } catch (error) {
-                      console.error("Logout failed:", error);
-                      addToast("Unable to log out. Please try again.");
-                    }
+                  type="button"
+                  onClick={() => {
+                    setLogoutError("");
+                    setShowLogoutConfirm(true);
                   }}
                   style={{
                     color: "rgba(255,255,255,0.6)",
@@ -1276,7 +1306,7 @@ export default function App() {
       )}
 
       {/* Organizer Submit Modal — sends email for review, does NOT publish */}
-      {showOrganizerSubmit && (
+      {canHostEvent && showOrganizerSubmit && (
         <Overlay onClose={() => setShowOrganizerSubmit(false)}>
           <OrganizerSubmitModal onClose={() => setShowOrganizerSubmit(false)} />
         </Overlay>
@@ -1316,6 +1346,124 @@ export default function App() {
           onPaymentSuccess={handlePaymentSuccess}
           onHoldExpired={handleHoldExpired}
         />
+      )}
+      {/* ── Logout Confirmation Modal ── */}
+      {showLogoutConfirm && (
+        <Overlay onClose={closeLogoutConfirm}>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-confirm-title"
+            aria-describedby="logout-confirm-description"
+            aria-busy={loggingOut}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") closeLogoutConfirm();
+            }}
+            className="auth-card"
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 20,
+              textAlign: "center",
+              boxShadow: "0 30px 80px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                width: 60,
+                height: 60,
+                margin: "0 auto 18px",
+                borderRadius: 18,
+                background: "#FEF2EE",
+                display: "grid",
+                placeItems: "center",
+                fontSize: 28,
+              }}
+            >
+              👋
+            </div>
+
+            <h2
+              id="logout-confirm-title"
+              style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: 26,
+                color: "#1B2B4E",
+                margin: "0 0 10px",
+              }}
+            >
+              Log out of Hapenly?
+            </h2>
+
+            <p
+              id="logout-confirm-description"
+              style={{
+                color: "#6B7280",
+                fontSize: 14,
+                lineHeight: 1.6,
+                margin: "0 0 24px",
+              }}
+            >
+              Are you sure you want to log out? You can sign in again whenever
+              you’re ready.
+            </p>
+
+            {logoutError && (
+              <p role="alert" style={{ color: "#B91C1C", fontSize: 14 }}>
+                {logoutError}
+              </p>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 12,
+              }}
+            >
+              <button
+                type="button"
+                autoFocus
+                disabled={loggingOut}
+                onClick={closeLogoutConfirm}
+                style={{
+                  flex: "1 1 140px",
+                  padding: "13px 16px",
+                  borderRadius: 12,
+                  border: "1px solid #E5E7EB",
+                  background: "#FFFFFF",
+                  color: "#1B2B4E",
+                  fontFamily: "inherit",
+                  fontWeight: 700,
+                  cursor: loggingOut ? "default" : "pointer",
+                }}
+              >
+                No, stay signed in
+              </button>
+
+              <button
+                type="button"
+                disabled={loggingOut}
+                onClick={handleConfirmLogout}
+                style={{
+                  flex: "1 1 140px",
+                  padding: "13px 16px",
+                  borderRadius: 12,
+                  border: "none",
+                  background:
+                    "linear-gradient(135deg, #C84B31 0%, #E05B3A 100%)",
+                  color: "#FFFFFF",
+                  fontFamily: "inherit",
+                  fontWeight: 700,
+                  cursor: loggingOut ? "wait" : "pointer",
+                  opacity: loggingOut ? 0.65 : 1,
+                }}
+              >
+                {loggingOut ? "Logging out…" : "Yes, log out"}
+              </button>
+            </div>
+          </section>
+        </Overlay>
       )}
 
       {/* ── Organizer Dashboard Modal ── */}
