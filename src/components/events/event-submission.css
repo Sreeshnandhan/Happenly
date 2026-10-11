@@ -1,0 +1,16 @@
+.event-submission-form, .event-requests-section { padding: 2rem; }
+.event-submission-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.event-secondary-button { padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 10px; background: white; color: #1b2b4e; font: inherit; font-size: 13px; cursor: pointer; }
+.event-secondary-button:disabled { cursor: default; opacity: .55; }
+.event-request-card { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 20px; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; overflow-wrap: anywhere; }
+.event-request-details { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 14px; font-size: 13px; }
+.event-request-details dt { font-weight: 700; color: #1b2b4e; }
+.event-request-details dd { margin: 0; color: #4b5563; }
+@media (max-width: 600px) {
+  .event-submission-form, .event-requests-section { padding: 1.25rem; }
+  .event-submission-grid { grid-template-columns: minmax(0, 1fr); }
+  .event-submission-grid > div { grid-column: auto !important; min-width: 0; }
+  .event-request-card { grid-template-columns: minmax(0, 1fr); padding: 14px; }
+  .event-request-details { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .event-request-details dd { margin-bottom: 8px; }
+}
