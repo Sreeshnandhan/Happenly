@@ -132,6 +132,16 @@ export default function App() {
   const [syncEnabled, setSyncEnabled] = useState(true);
   const [syncLogs, setSyncLogs] = useState<string[]>([]);
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
+  //const [user, setUser] = useState<UserAccount | null>(null);
+
+  //Admin condition
+  const isAdmin = user?.role === "ADMIN";
+  useEffect(() => {
+    if (!isAdmin) {
+      setShowOrganizerDashboard(false);
+      setShowHostModal(false);
+    }
+  }, [isAdmin]);
 
   // ─── Persist Auth State ───
   useEffect(() => {
@@ -681,23 +691,24 @@ export default function App() {
             className="header-navigation"
             style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}
           >
-            <button
-              onClick={() => setShowOrganizerDashboard(true)}
-              style={{
-                background: "linear-gradient(135deg, #F5A623 0%, #D97706 100%)",
-                color: "white",
-                border: "none",
-                borderRadius: 10,
-                padding: "8px 16px",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(217,119,6,0.25)",
-                marginRight: 4,
-              }}
-            >
-              💼 Organizer Console
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowOrganizerDashboard(true)}
+                style={{
+                  background:
+                    "linear-gradient(135deg, #F5A623 0%, #D97706 100%)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 10,
+                  padding: "8px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                💼 Organizer Console
+              </button>
+            )}
             <button
               onClick={() => setShowOrganizerSubmit(true)}
               style={{
@@ -1272,7 +1283,7 @@ export default function App() {
       )}
 
       {/* Admin Host Modal — used inside Organizer Console to publish events live */}
-      {showHostModal && (
+      {isAdmin && showHostModal && (
         <Overlay onClose={() => setShowHostModal(false)}>
           <HostEventModal
             onClose={() => setShowHostModal(false)}
@@ -1308,7 +1319,7 @@ export default function App() {
       )}
 
       {/* ── Organizer Dashboard Modal ── */}
-      {showOrganizerDashboard && (
+      {isAdmin && showOrganizerDashboard && (
         <OrganizerDashboardModal
           events={events}
           onClose={() => setShowOrganizerDashboard(false)}

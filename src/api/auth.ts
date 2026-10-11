@@ -1,7 +1,7 @@
 // src/api/auth.ts
 // Wrapper for authentication endpoints — all requests go through Vite proxy to backend
 
-import type { UserAccount } from "../types";
+import type { UserAccount, UserRole } from "../types";
 
 export interface LoginPayload {
   identifier: string; // email, phone or username
@@ -18,22 +18,22 @@ export interface RegisterPayload {
 
 // Backend returns { id, name, email, phone, role } — we map `name` → `username`
 interface BackendUser {
-  id: string;
+  id: string | number;
   name: string;
   email: string;
   phone: string | null;
-  role: string;
+  role: UserRole;
 }
 
 function toUserAccount(u: BackendUser): UserAccount {
   return {
-    id: u.id,
+    id: String(u.id),
     username: u.name,
     email: u.email,
     phone: u.phone ?? "",
+    role: u.role,
   };
 }
-
 const API_BASE = `${(import.meta.env.VITE_API_URL || "").replace(/\/$/, "")}/api/auth`;
 
 async function passwordRequest(path: string, payload: object): Promise<string> {
