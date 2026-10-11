@@ -54,13 +54,21 @@ export interface Category {
   color: string;
   bgColor: string;
 }
+export type UserRole = "USER" | "ORGANIZER" | "ADMIN";
 
 export interface UserAccount {
   id: string;
   username: string;
   email: string;
   phone: string;
-  password?: string;
+  role: UserRole;
+}
+export interface UserAccount {
+  id: string;
+  username: string;
+  email: string;
+  phone: string;
+  role: UserRole;
 }
 
 /**
